@@ -23,6 +23,7 @@ void printRecords(DBMS_RECORD ** records, int numberInArray);
 void getInfo(DBMS_RECORD ** records, int numberInArray);
 void writeToFile(char * path, DBMS_RECORD ** records, int * numberInArray);
 void readFromFile(char * path, DBMS_RECORD ** records, int * numberInArray);
+int findFreeSlot(DBMS_RECORD ** records, int * numberInArray);
 
 
 int main(int argc, char * argv[], char * env[]){
@@ -32,10 +33,14 @@ int main(int argc, char * argv[], char * env[]){
     int id = 0;
     char * path = "./testDB.dbm";
     int searchResult;
-    
-    //allocate space for 10 pointers
     DBMS_RECORD ** records = (DBMS_RECORD **)malloc(sizeof(DBMS_RECORD *) * 10);
-    readFromFile(path, records, &numberInArray);    
+    //set each pointer to null
+    for(int i = 0; i < 10; i++){
+        records[i] = NULL;
+    }
+   
+    if(access(path, F_OK) == 0)
+        readFromFile(path, records, &numberInArray);    
     printRecords(records, numberInArray);
 
     //read from and print file
@@ -82,9 +87,15 @@ int main(int argc, char * argv[], char * env[]){
 void addRecords(DBMS_RECORD ** records, int * numberInArray){
     //TODO: handle the error of trying to add records for the second time.
     int status = 1;
+    int freeSlot;
     while(status){
-        records[*numberInArray] = (DBMS_RECORD *) malloc(sizeof(DBMS_RECORD));
-        getInfo(records, *numberInArray);
+        freeSlot = findFreeSlot(records, numberInArray);
+        if(freeSlot == -1){
+            return;
+        }
+        printf("free slot is: %d\n", freeSlot);
+        records[freeSlot] = (DBMS_RECORD *) malloc(sizeof(DBMS_RECORD));
+        getInfo(records, freeSlot);
         (*numberInArray)++;
         //get status    
         printf("Would you like to add another record? (1/0): ");
@@ -93,6 +104,8 @@ void addRecords(DBMS_RECORD ** records, int * numberInArray){
 }
 int searchRecords(DBMS_RECORD ** records, int id, int * numberInArray){
     for(int i = 0; i < (*numberInArray); i++){
+        if(records[i] == NULL)
+            continue;
         if(records[i]->id == id){
             printf("returned number from search is: %d\n", i);
             return i;
@@ -103,23 +116,15 @@ int searchRecords(DBMS_RECORD ** records, int id, int * numberInArray){
 }
 
 void deleteRecords(DBMS_RECORD ** records, int id, int * numberInArray){
-    int tempi, tempi2, tempNum;
-    int i;
-    int position = searchRecords(records, id, numberInArray);
-    tempNum = *numberInArray;
-    tempNum--;
-    for(i = position; i < tempNum; i++){
-        tempi2 = i;
-        tempi2++;
-        tempi = tempi2;
-        records[i]->id = records[tempi]->id;
-        records[i]->gpa = records[tempi]->gpa;
-        printf("%s\n", records[i]->fullname);
-        printf("%s\n", records[tempi]->fullname);
-        strcpy(records[i]->fullname, records[tempi]->fullname);
+    int freeSlot = findFreeSlot(records, numberInArray);
+    int slot = searchRecords(records, id, numberInArray);
+    if(slot == -1){
+        exit(3);
     }
+    free(records[slot]);
+    records[slot] = NULL;
     (*numberInArray)--;
-    
+    return;
 }
 
 void editRecords(DBMS_RECORD ** records, int * numberInArray){
@@ -136,6 +141,9 @@ void editRecords(DBMS_RECORD ** records, int * numberInArray){
 
 void printRecords(DBMS_RECORD ** records, int numberInArray){
     for(int i = 0; i < numberInArray; i++){
+        if(records[i] == NULL){
+            continue;
+        }
         printf("Student %d's ID is: %d\n", i, records[i]->id);
         printf("Student %d's full name is: %s", i, records[i]->fullname);
         printf("Student %d's GPA is: %f\n", i, records[i]->gpa);
@@ -186,9 +194,18 @@ void readFromFile(char * path, DBMS_RECORD ** records, int * numberInArray){
     }
     else{
         printf("database not found\n");
-        exit(1);
+        exit(2);
     }
     fclose(inputFile);
     printf("Number in array: %d\n", *numberInArray);
     return;
+}
+int findFreeSlot(DBMS_RECORD ** records, int * numberInArray){
+    for(int i = 0; i <= *numberInArray; i++){
+        if(records[i] == NULL){
+            return i;
+        }
+    }
+    printf("no null position found\n");
+    return -1;
 }
